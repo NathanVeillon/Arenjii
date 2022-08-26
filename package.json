@@ -10,6 +10,12 @@
     "start": "node bot.js"
   },
   "author": "Saelvarath",
+  "contributors": [
+    {
+      "name": "Nathan Veillon",
+      "email": "nathan.veillon@gmail.com"
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Saelvarath/Arenjii.git"
