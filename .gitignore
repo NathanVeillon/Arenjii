@@ -1,2 +1,5 @@
 config.json
+logFile.txt
+
 .idea
+node_modules
