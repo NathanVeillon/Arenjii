@@ -1,0 +1,7 @@
+{
+  "application_id": "Your Discord Application Id Here",
+  "guild_ids": [],
+  "publicKey": "Your Discord Public Key",
+  "token": "The Private Application Token",
+  "prefixes": [ "~", "\\" ]
+}

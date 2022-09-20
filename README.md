@@ -34,5 +34,4 @@ create a file named 'config.json' in the project folder and paste the code below
 >	"token": "__Your Discord Bot Token Here__",  
 >	"prefixes": [ "~", "\\" ],  
 >	"_prefixes": "You can add or remove characters to the line above. Also: delete this line",  
->	"boss": "__Optional. Your Discord user ID here. For use in the Feedback command__"  
 >}

@@ -2,12 +2,13 @@
   "name": "arenjii",
   "version": "1.0.0",
   "dependencies": {
-    "discord.js": "^11.4.2",
-    "enmap": "^2.7.2"
+    "discord.js": "^14.3.0",
+    "enmap": "^5.9.1"
   },
   "license": "ISC",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node src/bot.js",
+    "register_commands": "node src/register_commands.js"
   },
   "author": "Saelvarath",
   "contributors": [
@@ -20,11 +21,14 @@
     "type": "git",
     "url": "https://github.com/Saelvarath/Arenjii.git"
   },
-  "description": "White God of Progression, A Discord dice roller bot for Burning Wheel with a few too many KSDB references for the auther's own game.",
+  "description": "White God of Progression, A Discord dice roller bot for Burning Wheel with a few too many KSDB references for the author's own game.",
   "keywords": [
     "Burning Wheel",
     "Discord",
     "Dice Roller",
     "KSBD"
-  ]
+  ],
+  "devDependencies": {
+    "eslint": "8.22.0"
+  }
 }

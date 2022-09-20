@@ -1,6 +1,6 @@
-import {RDC} from "./utils.mjs";
+const {RDC} = require('./utils.js');
 
-class DiePool
+class DicePool
 {
 
     static rollPattern = RegExp( '([bgw])(\\d{1,2})(!?)', 'i' );
@@ -45,9 +45,33 @@ class DiePool
      *
      * @param firstCmd the Base Dice and Shade to Roll, e.g. b4!, g10, w2
      * @param args Additional flags that modify the base roll
+     *
+     *
+     *
+     * ToDo: List of New Options To Add To A Roll
+     *
+     * Greed:
+     *     - Aids or hinders Resource tests
+     *     - 1Pp: add [1-Greed] dice to a roll. Act as Artha Dice.
+     *     Grief:
+     *     - 1Dp, add [Grief] dice to a spell/skill song exponent. Independently Open-Ended.
+     * Hatred:
+     *     - 1/session: may test Hatred in place of any skill or stat if appropriate. Open-Ended.
+     *     - 1Dp: add [Hatred] to the roll instead of doubling exponent. Independently Open-Ended.
+     * Spite:
+     *     - 1Dp: add [Spite] dice to a roll.
+     * Corruption:
+     *     - may test Corruption in place of Forte for spell tax
+     *     - 1Fp: Corruption Exponent helps skill/stat roll.
+     *     - 1Pp: may test Corruption in place of any skill or stat
+     *     - 1Dp: add [Corruption] to the roll instead of doubling exponent.
+     *
+     * Maybe Rune Casting, Nature of all things also function like this?
+     *
+     *
      */
     constructDiceProfile(firstCmd, args){
-        let firstExp = DiePool.rollPattern.exec( firstCmd );
+        let firstExp = DicePool.rollPattern.exec( firstCmd );
 
         this.exponent = Number(firstExp[2]);
         this.shade = [ 0, 0, 'w', 'g', 'b' ].indexOf( firstExp[1] ); //W = 2, G = 3, B = 4
@@ -56,7 +80,7 @@ class DiePool
         // read and interpret each token
         args.forEach( token =>
         {
-            let flag = DiePool.flagPattern.exec( token );
+            let flag = DicePool.flagPattern.exec( token );
 
             if ( flag )
             {
@@ -81,6 +105,7 @@ class DiePool
                         }
                         break;
                     case 'ar':  //misc artha //todo ask about misc artha dice and why they aren't included in boon dice.
+                    case 'p':
                         this.arthaDice += amount;
                         break;
                     case 'bl':  // Beginner's Luck
@@ -154,27 +179,28 @@ class DiePool
     roll(){
         for ( let a = 0; a < this.astroDice; a++ )
         {
-            let astRoll = DiePool.rollDie();
+            let astRoll = DicePool.rollDie();
             this.astroResult += astRoll >= this.shade;
             this.astroPool.push( astRoll );
 
             while(astRoll === 6 )
             {
-                astRoll = DiePool.rollDie();
+                astRoll = DicePool.rollDie();
                 this.astroResult += astRoll >= this.shade;
                 this.astroPool.push( astRoll );
             }
 
             if ( astRoll === 1 )
             {
-                astRoll = DiePool.rollDie();
-                this.astroResult -= astRoll < this.shade; //todo Ask Clarification on Departure from Raw on Astrology Failure
+                astRoll = DicePool.rollDie();
+                this.astroResult -= astRoll < this.shade; //todo ask clarification on departure from RaW on astrology failure
                 this.astroPool.push( astRoll );
             }
         }
 
-        // roll Independently Open-Ended dice //todo Ask clarification on independent Open Ended dice
-        this.rollDiceGroup(this.openEndedDice, )
+        // roll Independently Open-Ended dice
+        // todo ask clarification on independent open-ended dice
+        this.rollDiceGroup(this.openEndedDice, this.openEndedPool, true)
 
         // Roll Helper dice
         for (let h = 0; h < this.helperPool.length; h++ )
@@ -195,7 +221,7 @@ class DiePool
         let shouldOpenEnd = forceOe || this.isOpenEnded;
         for (let d = 0; d < diceToRoll; d++)
         {
-            let r = DiePool.rollDie();
+            let r = DicePool.rollDie();
             if ( r >= this.shade ) this.successes++;
             if (shouldOpenEnd && r === 6 ) d--;
 
@@ -207,18 +233,18 @@ class DiePool
         return  1 + Math.floor( Math.random() * 6 );
     }
 
-    // DiePool.printPool()
+    // DicePool.printPool()
     printPool()
     {
         let msg = `${this.owner} rolled ${this.totalRolled} ${[ 0, 0, 'White', 'Grey', 'Black' ][ this.shade ]} ${this.isOpenEnded ? 'Open-Ended' : 'shaded'} dice`;
         msg += `${this.beginnersLuck ? `, Beginner's Luck,` : ``}`;
         msg += `${this.obstacle > 0 ? ` against an Ob of ${this.obstacle * this.ObMultiplier + this.ObAddition}` : ''}`;
-        msg += `${this.ObMultiplier > 1 && this.obstacle > 0 ? ` [${this.obstacle}*${this.ObMultiplier}${this.ObAddition !== 0 ? `+${this.ObAddition}` : ``}].` : '.'}`;
+        msg += `${this.ObMultiplier > 1 && this.obstacle > 0 ? ` [${this.obstacle} \* ${this.ObMultiplier}${this.ObAddition !== 0 ? ` \+ ${this.ObAddition}` : ``}].` : '.'}`;
 
         // print base dice
         if ( this.basePool.length )
         {
-            msg += `\nExponent dice: ${ DiePool.diceSugar( this.basePool, this.shade, this.isOpenEnded ) }`;
+            msg += `\nExponent dice: ${ DicePool.diceSugar( this.basePool, this.shade, this.isOpenEnded ) }`;
             msg += this.arthaDice > 0 ? ` ${this.arthaDice} of which were gained by spending Artha` : '';
             //-msg += '\nActual roll: {' + this.basePool.toString() + '}';
         }
@@ -226,13 +252,13 @@ class DiePool
         //+ Independently Open-Ended dice
         if ( this.openEndedDice > 0 )
         {
-            msg += `\nOpen-Ended: ${DiePool.diceSugar( this.openEndedPool, this.shade, 1)}`;
+            msg += `\nOpen-Ended: ${DicePool.diceSugar( this.openEndedPool, this.shade, true)}`;
         }
 
         // determine helper test difficulty
         for ( let helper = 0; helper < this.helperPool.length; helper++ )
         {
-            msg += `\nHelper${helper} added ${DiePool.diceSugar( this.helperPool[helper], this.shade, this.isOpenEnded )} to the roll`;
+            msg += `\nHelper${helper} added ${DicePool.diceSugar( this.helperPool[helper], this.shade, this.isOpenEnded )} to the roll`;
 
             if ( this.obstacle > 0 )
             {
@@ -245,7 +271,7 @@ class DiePool
         // tally & output astrology results
         if ( this.astroDice > 0 )
         {
-            msg += `\nFortune Dice: ${DiePool.diceSugar( this.astroPool, this.shade, 2 )}`;
+            msg += `\nFortune Dice: ${DicePool.diceSugar( this.astroPool, this.shade, 2 )}`;
             msg += `\nThe Stars were ${this.astroResult > 0 ? 'right' : 'wrong'} and their fate gives them ${this.astroResult} success this roll`;
         }
 
@@ -255,14 +281,14 @@ class DiePool
 
         if ( this.obstacle > 0 )
         {
-            msg += totesSuccesses >= totesObstacle ?	`\nThat's a success with a margin of ${totesSuccesses - totesObstacle} and they got to mark off a` :
-                `\nTraitorous dice! That's a *failure* of ${totesObstacle - totesSuccesses}... \nAt least they got a`;
+            msg += totesSuccesses >= totesObstacle ?	`\nThat's a success with a margin of ${totesSuccesses - totesObstacle} and they got ` :
+                `\nTraitorous dice! That's a *failure* of ${totesObstacle - totesSuccesses}... \nAt least they got `;
 
             let bl = RDC( this.exponent + this.nonArtha + this.astroDice + this.helperDice, this.obstacle + this.ObAddition );
 
             if ( this.beginnersLuck )
             {
-                msg += bl === 'Routine' ? 'n Advance towards learning a **new Skill**!' : ` ${bl} test towards their **Root Stat**!`;
+                msg += bl === 'Routine' ? 'to advance towards learning a **new Skill**!' : `a ${bl} test towards their **Root Stat**!`;
             }
             else
             {
@@ -285,7 +311,7 @@ class DiePool
 
 
     // WARNING: Illegible mess.
-    static diceSugar(pool, shade, open)
+    static diceSugar(pool, shade, isOpen)
     {
         let msg = '[';
 
@@ -297,10 +323,10 @@ class DiePool
                 // iterate through N dimensional arrays
                 if ( Array.isArray( pool[d] ) )
                 {
-                    msg += DiePool.diceSugar( pool[d], shade, open );
+                    msg += DicePool.diceSugar( pool[d], shade, isOpen );
                 }
                 // if dice explode
-                else if (open !== 0 && ( pool[d] === 6 || pool[d] === 1 ) )
+                else if (isOpen && ( pool[d] === 6 || pool[d] === 1 ) )
                 {
                     if ( pool[d]  === 6 )
                     {
@@ -311,7 +337,7 @@ class DiePool
                             msg += `, ${pool[++d]}`;
                         }
 
-                        if ( open === 2 && pool[d + 1] === 1 )
+                        if ( isOpen === 2 && pool[d + 1] === 1 )
                         {
                             msg += `**, ~~${pool[++d]}, ${pool[++d]}~~`;
                         }
@@ -323,7 +349,7 @@ class DiePool
                         msg += '__';
                     }
                     // if 1s explode
-                    else if ( open === 2 && pool[d] ===1 && d !== pool.length )
+                    else if ( isOpen === 2 && pool[d] ===1 && d !== pool.length )
                     {
                         msg += ( d === 0 ? `~~${pool[d]}, ${pool[++d]}~~` : `, ~~${pool[d]}, ${pool[++d]}~~` );
                     }
@@ -348,3 +374,5 @@ class DiePool
         return msg;
     }
 }
+
+module.exports = {DicePool};

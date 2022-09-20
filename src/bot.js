@@ -1,10 +1,12 @@
-const Discord = require( 'discord.js' );
-const config = require( './config.json' );
-const {DicePool} = require('./src/dice.mjs');
+const {Client, Collection, GatewayIntentBits} = require( 'discord.js' );
+const config = require( '../config.json' );
+const {DicePool} = require('./dice.js');
 
+const path = require( 'path' );
 const fs = require( 'fs' );
 
 const Enmap = require('enmap');
+const {HelpMessage} = require("./help.js");
 //+ const EnmapMongo = require('enmap-mongo');
 
 //+ TODO
@@ -12,10 +14,23 @@ const Enmap = require('enmap');
 	//+ Ensure Versus test are correct?
 
 // Initialize Discord Bot
-const client = new Discord.Client(); //- { token: config.token, autorun: true });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent] });
 
 //+ client.rollMap = new Enmap({ provider: new EnmapMongo({ name: "rollMap" }) }); // Persistent
 client.rollMap = new Enmap(); // non-persistent
+
+//Adds all the Commands in the commands folder to the client
+client.commands = new Collection();
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+	const filePath = path.join(commandsPath, file);
+	const command = require(filePath);
+	// Set a new item in the Collection
+	// With the key as the command name and the value as the exported module
+	client.commands.set(command.data.name, command);
+}
 
 const routineTest = [0, 1, 1, 2, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25];
 
@@ -25,8 +40,10 @@ const rollPattern = RegExp( '([bgw])(\\d{1,2})(!?)', 'i' );
 
 client.on ( "ready", () => { console.log( "I am ready!" ); });
 
-client.on( 'message', ( message ) =>
+client.on( 'messageCreate', ( message ) =>
 {
+	console.log("Hey!");
+
 	if ( !message.author.bot && message.content.length > 1 && prefixes.includes( message.content.charAt(0) ) )
 	{
 
@@ -51,7 +68,7 @@ client.on( 'message', ( message ) =>
 		  // setup
 			let currPool = new DicePool();
 
-			currPool.owner = message.author;
+			currPool.owner = message.author.username;
 
 			// read and interpret each token
 			currPool.constructDiceProfile(firstCmd, args);
@@ -97,178 +114,15 @@ client.on( 'message', ( message ) =>
 				//- client.rollMap.set( message.channel.id, currPool ); //- is there any reason to save this?
 				client.rollMap.set( message.author.id, currPool );
 			}
-		} 
+		}
 	  // Help
 		else if ( firstCmd === 'help' )
 		{
-			switch ( args[1] )
-			{
-				case 'co':
-				case 'callon':
-					msg += '\n__Call-On Trait__';
-					msg += '\nFunction: Rerolls all traitor dice in your previous roll. Usable once per roll.';
-					msg += '\nForm: `~co` or `~callon`';
-					break;
+			let commStr =  args[1];
+			let helpMsg = (HelpMessage.hasOwnProperty(commStr)) ? HelpMessage[commStr] : HelpMessage.default;
 
-				case 'diff':
-				case 'difficulty':
-				case 'rdc':
-					msg += '\n__Difficulty Calculator__';
-					msg += '\nFunction: Returns if a test is Routine, Difficult or Challenging.';
-					msg += '\nForm: `~diff X Y` or `~difficulty X Y` or ~rdc X Y`';
-					msg += '\n\t` X` is the number of dice rolled.';
-					msg += '\n\t` Y` is the Obstacle of the test.';
-					break;
-
-				case 'dof':
-					msg += '\n__Die of Fate__';
-					msg += '\nFunction: Rolls a single die.';
-					msg += '\nForm: `~dof {tags}`';
-					msg += '\nExtra Tags:';
-					msg += '\n\t` +#` adds `#` [1-9] to the result of the roll.';
-					msg += '\n\t` -#` subtracts `#` [1-9] to the result of the roll.';
-					break;
-
-				case 'dow':
-					msg += 'This feature is in testing and has not been completed yet\n';
-					msg += '\n__Duel of Wits Guide__';
-					msg += '\nFunction: a quick look up for the mechanics and interations of the various Duel of Wits actions.';
-					msg += '\nForm: `~dow {action} {action}`';
-					msg += '\nNotes:\n\t- No actions: Displays a list of recognized action keywords.\n\t- One action: displays the mechanics of the action .\n\t- Two Actions: displays the interaction when the two actions are scripted against eachother.';
-					break;
-
-				case 'fate':
-				case 'luck':
-					msg += '\n__Luck, Fate point__';
-					msg += '\nFunction: Rerolls all 6s in your previous roll if it wasn\'t open-ended or one traitor die if it was. Usable once per roll.';
-					msg += '\nForm: `~fate` or `~luck`';
-					break;
-
-				case 'grace':
-					msg += '\n__Saving Grace, Deeds Point__'
-					msg += '\nFunction: Rerolls all Traitor Dice in your previous roll. Usable once per roll.';
-					msg += '\nForm: `~grace`';
-					break;
-
-				case 'help':
-					msg += '\n__Bot Manual__'
-					msg += '\nFunction: displays information about Arenjii\'s various uses.';
-					msg += '\nForm: `~help {command}`. eg. `~help diff`';
-					msg += '\nNotes: if no commands are specified it will display a brief summary of all of Arenjii\'s commands\n\t';
-					break;
-
-				case 'pr':
-				case 'prev':
-					msg += '\n__Display Previous Roll__';
-					msg += '\nFunction: Displays your previous roll or that of the mentioned user, including all changes made to it afterwards such as with `~callon`, `~fate` and `~vs`';
-					msg += '\nForm: `~pr` or `~prev` optional: `@user`. eg `~prev @Un-Arenjii#4939`';
-					break;
-
-				case 'rac':
-					msg += 'This feature is in testing and has not been completed yet\n';
-					msg += '\n__Range and Cover Guide__';
-					msg += '\nFunction: a quick look up for the mechanics and interations of the various Range and Cover Maneuvers.';
-					msg += '\nForm: `~rac {action} {action}`';
-					msg += '\nNotes:\n\t- No actions: Displays a list of recognized maneuver keywords.\n\t- One action: displays the mechanics of the maneuver .\n\t- Two Actions: displays the interaction when the two maneuvers are scripted against eachother.';
-					break;
-
-				case 'roll':
-					msg += '\n__Roll the Dice__';
-					msg += '\nFunction: Rolls a pool of dice';
-					msg += '\nForm: `~X#{!} {Tags...}`';
-						msg += '\n\t`X` Accepts `b`, `g` or `w`. Determines the __Shade__ (Black, Grey or White respectively) of the roll.';
-						msg += '\n\t`#` the __Base Exponent__ of the Test to be rolled [0-99].';
-						msg += '\n\t`!` *optional*; adding this makes the roll Open-Ended';
-					msg += '\nExtra Tags:';
-						msg += '\n\t`ad#` __Advantage__ Adds `#` advantage dice to the roll.';
-						msg += '\n\t`ar#` __Artha__ Adds `#` Artha dice to the roll.';
-						/*Greed: 
-						- Aids or hinders Resource tests
-						- 1Pp: add [1-Greed] dice to a roll. Act as Artha Dice.
-						Grief: 
-						- 1Dp, add [Grief] dice to a spell/skill song exponent. Independantly Open-Ended.
-						Hatred: 
-						- 1/session: may test Hatred in place of any skill or stat if appropriate. Open-Ended.
-						- 1Dp: add [Hatred] to the roll instead of doubling exponent. Independantly Open-Ended.
-						Spite:
-						- 1Dp: add [Spite] dice to a roll.
-						Corruption: 
-						- may test Corruption in place of Forte for spell tax
-						- 1Fp: Corruption Exponent helps skill/stat roll. 
-						- 1Pp: may test Corruption in place of any skill or stat
-						- 1Dp: add [Corruption] to the roll instead of doubling exponent.
-						*/
-					// Rune Casting, Nature of all things also function like this?
-						msg += '\n\t`as#` __Astrology, FoRK__: Adds special Astrology FoRK dice. # = [Astrology exponent].';
-						msg += '\n\t`bl ` __Beginners\' Luck__: Multiplies Base Obstacle by 2, calculates if the test goes towards the ability or the skill';
-						msg += '\n\t`bn#` __Boon, Deeds Point__: Adds `#` (3 Max) Artha dice to the roll.';
-						msg += '\n\t`di ` __Divine Inspiration, Deeds Point__: Adds [Base Exponent] Artha dice to the roll.';
-						msg += '\n\t`ds#` __Disadvantage__: Adds `#` to the Base Obstacle.';
-						msg += '\n\t`fk#` __FoRK__: Functionally identical to `ad`. See `as` to FoRK in Astrology';
-						msg += '\n\t`he#` __Helper Exponent__: Adds Help Dice from an Exponent of `#` [1-10].';
-						msg += '\n\t`ns`  __Not Saved__: Do not save this roll. Several features use your previous roll';
-						msg += '\n\t`ob#` __Obstacle, Base__: Set the Base Obstacle of the task to `#`.';
-
-						msg += '\n\t`oe#` __Open-Ended__: Adds `#` dice to the roll that are Open-Ended independantly of the base roll';
-						
-						msg += '\n\t`ox#` __Obstacle, Multiplier__: Multiplies the Base Obstacle by `#`.';
-						msg += "\n\t`vs ` __Versus Test__: Hide the results of the roll and add it to this channel's VS Stack. Trigger the Versus Test with `~vs`.";
-					msg += '\nNotes:\n\t- Its usually okay to include FoRKs and Advantage dice in your Exponent. The exception being when the `di` tag is included.\n\t- Similarly, unless the `bl` or `ox` tags are included it\'s alright to forgo the `ds` tag';
-					break;
-
-				case 'test':
-					msg += '\n__Areas for Improvement__';
-					msg += '\nFunction: Displays a list of things that need testing.';
-					msg += '\nForm: `~test`';
-					break;
-
-				case 'vs':
-					msg += '\n__Versus Test__';
-					msg += '\nFunction: Compares rolls. Which rolls are compared depends on how many mentions follow the command.';
-					msg += '\nForm: `~vs {Tags...}`';
-                    msg += "\nExtra Tags:\n\t- `clear`: Empties this channel's VS Stack (rolls made with the `vs` tag). \n\t- No Mentions: compares all rolls in this channel's VS stack. Clears the stack if successful.\n\t- One Mention: Compares mentioned person\'s last roll vs your last roll.\n\t- Two+ Mentions: Compares the last rolls of every person mentioned.";
-                    msg += "\nNotes:\n\t- The VS Stack is unique to each text channel, rolls made in different places will not be compared.\n\t- Each person's most recent roll is saved, this is independant of the channel it is made in, including DMs to the bot";
-					break;
-
-				case 'fight':
-				case 'prob':
-					msg += 'This feature has not been implemented yet';
-					break;
-
-				default:
-					msg += '\n\nAll commands are case insensitive so yell if you like. Speak slowly though, add spaces between tags so I can understand you.';
-					msg += '\nCurly braces `{}` denote optional features explained in the help text for the individual command.';
-					msg += '\nFor more detail on individual commands use `~help {command}`.\n\tExample: `~help vs`.';
-	
-					msg += '\n\n`~co`: See `~callon`';
-					msg += '\n`~callon`: __Call On Trait__ rerolls all traitor dice. Tracked separatetly from Saving Grace.';
-					msg += '\n`~diff X Y`: See `difficulty`';
-					msg += '\n`~difficulty X Y`: __Difficulty Calculator__ Returns if a roll of `X` dice against an Ob of `Y` is Routine, Difficult or Challenging.';
-					msg += '\n`~dof {tags...}`: __Die of Fate__ Rolls a single die.';
-					msg += '\n`~dow` __Duel of Wits Guide__ **In Testing**';
-					msg += '\n`~fate`: See `~luck`.';
-					msg += '\n`~fight` __Fight! Guide__ **Unimplemented**';
-					msg += '\n`~grace`: __Saving Grace, Deeds Point__ Rerolls all traitor dice, tracked separately from Call-on.';
-					msg += '\n`~help {command}`: __Specific Help__ gives more details about individual commands.';
-					msg += '\n`~luck`: __Luck, Fate point__ Rerolls all 6s in the previous roll if it wasn\'t open-ended or one traitor die if it was. Only useable once per roll';
-					msg += '\n`~pr {@user}`: See `~prev`';
-					msg += '\n`~prev {@user}`: __Previous Roll__: displays the previous roll.';
-					msg += '\n`~prob`: __Probability__: **Unimplemented** Calculates the possible outcomes of a given roll.';
-					msg += '\n`~rac`__Range and Cover Guide__ **In Testing**';
-					msg += '\n`~rdc X Y`: See `difficulty`';
-					msg += '\n`~test`: __How Can I Help?__ displays a list of things that need testing.';
-					msg += '\n`~vs {@user...}`: __Versus Test__ Pits two or more rolls against eachother.';
-					msg += '\n\n`~b#{!}`, `~g#{!}`, `~w#{!}` all include `{tags...}`. Rolls a pool of `#` [0-99] black, grey or white dice respectively.\n\ttype `~help roll` for more info on how to roll.';
-	
-					msg += '\n\nPlease PM Saelvarath#5785 if you find any bugs or have other comments or suggestions!\n\tA note to all using phones or international keyboards: the `~` can be replaced by `\\` in all commands for less hassle.';
-
-			}
-
-			if ( msg !== "" )
-			{
-				message.author.send( msg );
-				msg = `**${message.author.username} has queried the cosmos.**`;
-			}
+			message.author.send( helpMsg);
+			msg = `**${message.author.username} has queried the cosmos.**`;
 		}
 	  // Call On trait & Deeds point Saving Grace
 		else if ( firstCmd === 'co' || firstCmd === 'callon' || firstCmd === 'grace' )
@@ -293,18 +147,18 @@ client.on( 'message', ( message ) =>
 				while ( prevPool.astroPool[a] != null )
 				{
 					let newRoll = [];
-					
+
 					if ( prevPool.astroPool[a] < prevShade )
 					{
 						result = roll();
-						newRoll.push( result ); 
+						newRoll.push( result );
 						astroTally += result >= prevShade;
 
 					  // explode 6s
 						while ( result === 6 )
 						{
 							result = roll();
-							newRoll.push( result ); 
+							newRoll.push( result );
 							astroTally += result >= prevShade;
 						}
 
@@ -312,7 +166,7 @@ client.on( 'message', ( message ) =>
 						if ( result === 1 )
 						{
 							result = roll();
-							newRoll.push( result ); 
+							newRoll.push( result );
 							astroTally -= result <= prevShade;
 						}
 
@@ -330,7 +184,7 @@ client.on( 'message', ( message ) =>
 				prevPool.astroResult += astroTally;
 
 			  // Check independant Open pool (1Dim Array)
-				prevPool.openEndedPool.slice().forEach( ( ioe, iI, iC ) =>
+				prevPool.openEndedPool.slice().forEach(( ioe, iI) =>
 				{
 					let newRoll = [];
 
@@ -350,7 +204,7 @@ client.on( 'message', ( message ) =>
 				});
 
 			  // Check exponent Pool (1Dim Array)
-				prevPool.basePool.slice().forEach( ( die, dI, dC ) =>
+				prevPool.basePool.slice().forEach(( die, dI) =>
 				{
 					let newRoll = [];
 
@@ -370,9 +224,9 @@ client.on( 'message', ( message ) =>
 				});
 
 			  // Check Helper pool (2Dim Array)
-				prevPool.helperPool.slice().forEach( ( helper, hI, hC ) =>
+				prevPool.helperPool.slice().forEach( ( helper, hI) =>
 				{
-					helper.forEach( ( hDie, dII, dC ) =>
+					helper.forEach(( hDie, dII) =>
 					{
 						let newRoll = [];
 
@@ -403,7 +257,7 @@ client.on( 'message', ( message ) =>
 						{	prevPool.calledOn = true;	}
 					else if ( firstCmd === 'grace' )
 						{	prevPool.graced = true;	}
-					
+
 					prevPool.successes += expoTally;
 					client.rollMap.set( message.author.id, prevPool );
 					msg += `your rerolls net you ${astroTally + expoTally} successes.\n${prevPool.printPool()}`;
@@ -482,7 +336,7 @@ client.on( 'message', ( message ) =>
 			msg += `${message.author} rolled a Die of Fate`;
 			if ( bonus > 0 )
 				{	msg += ` + ${bonus}`;	}
-			else if ( bonus < 0 ) 
+			else if ( bonus < 0 )
 				{	msg += ` ${bonus}`;	}
 
 			msg += `!\n[${DoF + bonus}]`;
@@ -490,8 +344,8 @@ client.on( 'message', ( message ) =>
 	  //+ Duel of Wits Guide
 		else if ( firstCmd === 'dow' )
 		{
-			const DoWInterations =  
-			[ 
+			const DoWInterations =
+			[
 				[ '-', '-', '-', 1, 'VS', 'VS', '-', '-', '-' ],	// Avoid
 				[ 1, 1, 1, 1, 'VS', 1, 'VS', 1, 1 ],	// Dismiss
 				[ '-', '-', 'VS', 'VS', 'VS', '-', 1, 1, 1 ],	// Feint
@@ -500,24 +354,24 @@ client.on( 'message', ( message ) =>
 				[ 'VS', 1, 1, 1, 'VS', 1, 'VS', 1, 1 ],	// Point
 				[ '-', 'VS', '-', '-', 'VS', 'VS', '-', 0, 0 ],	// Rebuttal
 				[ '-', '-', '-', '-', '-', '-', '-', '-', '-' ],	// hesitate
-				[ '-', '-', '-', '-', '-', '-', '-', '-', '-' ] 
+				[ '-', '-', '-', '-', '-', '-', '-', '-', '-' ]
 			];	// casting, praying etc.
 
 		  //[name], [test], [std effect], [VS effect], {special}
-			const DoWAction = 
-			[ 
+			const DoWAction =
+			[
 				[ "Avoid the Topic",
 					"Will",
 					"-",
 					"Your successes are subtracted from your opponent's successes, reducing their effectiveness.\n\tActions that have their successes reduced to zero fail and their effects are canceled.",
 					"Avoid never suffers a double obstacle penalty for stat versus skill.", ],	// Avoid
-				[ "Dismiss Opponent", 
-					"Coarse Persuasion, Command, Intimidation, Oratory, Religious Diatribe, Rhetoric, Stentorious Debate, Ugly Truth", 
+				[ "Dismiss Opponent",
+					"Coarse Persuasion, Command, Intimidation, Oratory, Religious Diatribe, Rhetoric, Stentorious Debate, Ugly Truth",
 					"Each success subtracts from your opponent's body of argument.",
 					"Subtract the margin of success from your opponent's body of argument.\n\tAgainst the Dismiss action the winner subtracts ALL successes instead.",
 					"Dismiss adds +2D to the character’s skill.\n\tIf the a Dismiss action fails to win the duel, it's user must change their next volly to a hesitate action." ],	// Dismiss
 				[ "Feint",
-					"Extortion, Falsehood, Interrogation, Persuasion, Poisonous Platitudes, Religious Diatribe, Rhetoric, Soothing Platitudes, Seduction", 
+					"Extortion, Falsehood, Interrogation, Persuasion, Poisonous Platitudes, Religious Diatribe, Rhetoric, Soothing Platitudes, Seduction",
 					"Each success subtracts from your opponent's body of argument.",
 					"The margin of success is subtracted from your opponents body of argument." ],	// Feint
 				[ "Incite Emotion",
@@ -537,12 +391,12 @@ client.on( 'message', ( message ) =>
 					"-",
 					"Successes on attack dice are subtracted from your opponent's Body of Argument.\n\tSuccesses from the defense roll are subtracted from the opponent's successes.",
 					"Before you opponent rolls divide your dice between attack and defense. Each pool must have at least one die in it.\n\tAny penalties to the action are applied to both pools but bonuses to the action only apply to one."],
-				[ "Hesitate", // Stand and Drool, Run Screaming, Swoon, 
+				[ "Hesitate", // Stand and Drool, Run Screaming, Swoon,
 					"-",
-					"The character is not actively participating in the Duel of Wits and is vulnerable.", 
+					"The character is not actively participating in the Duel of Wits and is vulnerable.",
 					"The chacter can take no other action for now. Better luck with that Steel test next time!" ],
-				[ "Special", //spell casting, praying, singing, howling, etc. 
-					"Varies", 
+				[ "Special", //spell casting, praying, singing, howling, etc.
+					"Varies",
 					"The character too busy to actively participate in the Duel of Wits and is vulnerable. I hope it's worth it!",
 					"The character too busy to actively participate in the Duel of Wits and is vulnerable. I hope it's worth it!"]
 			];
@@ -573,7 +427,7 @@ client.on( 'message', ( message ) =>
 
 					msg =  `**${message.author.username} has queried the cosmos.**`;
 				}
-				else 
+				else
 					{	msg += "I don't know that action..."	}
 			}
 		  // 2 arguements displays info on the interation of the two specified actions.
@@ -616,12 +470,12 @@ client.on( 'message', ( message ) =>
 	  // Invite
 		else if ( firstCmd === "invite" )
 		{
-			const inviteEmbed = 
+			const inviteEmbed =
 			{
 				"title": "Invite Arenjii to your Discord server",
 				"description": "Click [Here](https://discordapp.com/oauth2/authorize?client_id=434471882163748876&scope=bot) to get the Wheel turning.",
 				"color": 14951424,
-				"thumbnail": 
+				"thumbnail":
 				{
 					"url": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Rotating_Konarka_chaka.gif"
 				}
@@ -633,7 +487,7 @@ client.on( 'message', ( message ) =>
 	  // Luck; Fate point, retroactively make a roll Open-Ended or reroll one die
 		else if ( firstCmd === 'luck' || firstCmd === 'fate' )
 		{
-			//+ if roll is not open ended but contains asto or independant open dice force choice 
+			//+ if roll is not open ended but contains asto or independant open dice force choice
 			//+ figure out how astro dice work in this scenario
 			//+ figure out how to handle pools with both open and non-open ended dice
 
@@ -657,8 +511,8 @@ client.on( 'message', ( message ) =>
 
 				  /**
 					* the Astrology FORK die is different from other FORKS: The die is open-ended.
-					* But unlike standard open—ended dice, it open-ends both ways. 
-					* 6s are rerolled as per the normal open—end rules, but 1s are open-ended as well. 
+					* But unlike standard open—ended dice, it open-ends both ways.
+					* 6s are rerolled as per the normal open—end rules, but 1s are open-ended as well.
 					* If a 1 is rolled, reroll the die.
 					* If the second roll is a failure, then a success is subtracted from the result.
 				  */
@@ -666,7 +520,7 @@ client.on( 'message', ( message ) =>
 				 /** Certain rolls in Burning Wheel are described as “open—ended.”
 				  * This means that any 6s rolled allow the player to pick up another die.
 				  * If you hit your difficulty munber or higher, it's a success.
-				  * If you don't meet your difficulty number, the die is a traitor. 
+				  * If you don't meet your difficulty number, the die is a traitor.
 				  * If you roll a 6, it counts as a success and you get to roll another die!
 				 */
 
@@ -717,7 +571,7 @@ client.on( 'message', ( message ) =>
 					let newRoll = 0;
 
 				  // check exponent Pool (1Dim Array)
-					prevPool.basePool.slice().forEach( ( die, dI, dC ) =>
+					prevPool.basePool.slice().forEach(( die, dI) =>
 					{
 						if ( die === 6 )
 						{
@@ -736,11 +590,11 @@ client.on( 'message', ( message ) =>
 					});
 
 				  // check Helper Pool (2Dim Array)
-					prevPool.helperPool.slice().forEach( ( helper, hI, hC ) =>
+					prevPool.helperPool.slice().forEach((helper, hI) =>
 					{
 						rerollHelp.push( [] );
 
-						helper.slice().forEach( ( die, dI, dC ) =>
+						helper.slice().forEach(( die, dI) =>
 						{
 							if ( die === 6 )
 							{
@@ -783,8 +637,9 @@ client.on( 'message', ( message ) =>
 	  // Practice
 		else if (  firstCmd === 'practice' )
 		{
-			const catagory = {};
-			const times = { 
+			let skill = "given skill";
+			const category = {};
+			const times = {
 						academic: [ 6, 'm', 2, 4, 8 ],
 						artistic: [ 1, 'y', 4, 8, 12 ],
 						artist: [ 6, 'm', 3, 6, 12 ],
@@ -809,7 +664,10 @@ client.on( 'message', ( message ) =>
 						power: [ 1, 'm', 2, 4, 8 ],
 						forte: [ 2, 'm', 4, 8, 16 ],
 						faith: [ 1, 'y', 5, 10, 20 ],
-						steel: [ 2, 'm', 1, 3, 9 ] };
+						steel: [ 2, 'm', 1, 3, 9 ]
+			};
+
+			console.log(times[category[skill]])
 		}
 	  // Show previous rolls
 		else if ( firstCmd === 'pr' || firstCmd === 'prev' )
@@ -834,47 +692,47 @@ client.on( 'message', ( message ) =>
 		else if ( firstCmd === 'rac' )
 		{
 		  //Name, Test, test type, move type, Effect
-			const RaCActions = 
+			const RaCActions =
 			[
-				['Charge', 
-					'Steel', 'steel', 
+				['Charge',
+					'Steel', 'steel',
 					'advance',
 					'If successful your opponent gets one free shot, then you advance one range category.\n\tIf tied, everyone on both teams gets to shoot.\n\tIf failed, your opponent gets two free shots and you hesitate in the next volley.'],
-				['Close Distance', 
+				['Close Distance',
 					'Speed ', 'stat',
 					'advance',
 					'If successful, advance one range category.'],
-				['Fall Back', 
+				['Fall Back',
 					'Tactics + FoRKs', 'skill',
-					'withdraw', 
+					'withdraw',
 					"If successful, withdraw one range category.\n\tThen, for two successes, you can re-range all combatant's weapons"],
-				['Flank', 
+				['Flank',
 					'Tactics + FoRKs', 'skill',
 					'advance',
 					'If successful, advance one range category.'],
-				['Hold Position', 
+				['Hold Position',
 					'Perception Vs Stat, Observation Vs Skill', 'special',
 					'hold',
 					"Special: Advantage dice from a position are carried over into your next maneuver.\n\tFirst, the movement portion of your opponent's maneuver automatically occurs.\n\tThen, take a free shot."], //doesn't get advantage from Stride
-				['Maintain Distance', 
+				['Maintain Distance',
 					'Speed', 'stat',
 					'hold',
 					'If successful, previous range catagory is unchanged.'],
-				['Retreat', 
+				['Retreat',
 					'Steel +1D', 'steel',
-					'withdraw', 
+					'withdraw',
 					'If successful, your opponent gets a free shot, then you withdraw one range category.\n\tIf tied, your opponent gets two free shots.\n\tIf failed, your opponents gets two free shots plus you hesitate in the next volley.'],
-				['Sneak In', 
+				['Sneak In',
 					'Stealthy + FoRKs', 'skill',
 					'advance',
 					'If successful, advance one range category.'],
-				['Sneak Out', 
+				['Sneak Out',
 					'Stealthy + FoRKs', 'skill',
-					'withdraw', 
+					'withdraw',
 					'If successful, withdraw one range category.'],
-				['Withdraw', 
+				['Withdraw',
 					'Speed +2D', 'stat',
-					'withdraw', 
+					'withdraw',
 					"Special: All actions taken cost two successes.\n\tIf successful, withdraw one range category and you can take an action to remain at your current range then re-range all combatant's weapons."],
 				['Stand and Drool',
 					'-', '-',
@@ -882,7 +740,7 @@ client.on( 'message', ( message ) =>
 					"The Ob for your opponent's Positioning test is 1 and they may take an action to capture you if within optimal range"],
 				['Run Screaming',
 					'Speed or Steel', 'Stat',
-					'withdraw', 
+					'withdraw',
 					'You drop what you are holding and flee while screaming.\n\tIf successful, you withdraw one range catagory but can make no aggressive actions.\n\tYour opponent may take an action to capture you if within optimal range'],
 				['Fall Prone and Beg for Mercy',
 					'-', '-',
@@ -904,7 +762,7 @@ client.on( 'message', ( message ) =>
 			else if ( args.length === 2 )
 			{
 				let act = actionConverter( 'r', args[1] );
- 
+
 				if ( typeof RaCActions[act] != 'undefined' )
 				{
 					msg += `**${RaCActions[act][0]}**`;
@@ -916,7 +774,7 @@ client.on( 'message', ( message ) =>
 
 					msg =  `**${message.author.username} has queried the cosmos.**`;
 				}
-				else 
+				else
 					{	msg += "I don't know that maneuver..."	}
 			}
 		  // 2 arguements displays info on the interation of the two specified actions.
@@ -941,7 +799,7 @@ client.on( 'message', ( message ) =>
 						else
 							{	msg += RaCActions[a1][1];	}
 
-						msg += ` plus modifiers gained from weapon range${a1 != 4 ? `, position and stride` : ` and position`}${ RaCActions[a2][2] === 'skill' && RaCActions[a1][2] === 'stat' ? ' at a __double Ob penalty__' : ''}.`;
+						msg += ` plus modifiers gained from weapon range${a1 !== 4 ? `, position and stride` : ` and position`}${ RaCActions[a2][2] === 'skill' && RaCActions[a1][2] === 'stat' ? ' at a __double Ob penalty__' : ''}.`;
 					}
 					msg += `\n\t${RaCActions[a1][4]}`;
 
@@ -960,7 +818,7 @@ client.on( 'message', ( message ) =>
 						else
 							{	msg += RaCActions[a2][1];	}
 
-						msg += ` plus modifiers gained from weapon range${a2 != 4 ? `, position and stride` : ` and position`}${ RaCActions[a1][2] === 'skill' && RaCActions[a2][2] === 'stat' ? ' at a __double Ob penalty__' : ''}.`;
+						msg += ` plus modifiers gained from weapon range${a2 !== 4 ? `, position and stride` : ` and position`}${ RaCActions[a1][2] === 'skill' && RaCActions[a2][2] === 'stat' ? ' at a __double Ob penalty__' : ''}.`;
 					}
 					msg += `\n\t${RaCActions[a2][4]}`;
 
@@ -970,8 +828,8 @@ client.on( 'message', ( message ) =>
 					{
 						/*
 						Close VS Flank,					 Close Wins.
-						Sneak In VS Close | Charge,		 Sneak In Wins. 
-						Flank Vs Sneak In | Charge,		 Flank wins. 
+						Sneak In VS Close | Charge,		 Sneak In Wins.
+						Flank Vs Sneak In | Charge,		 Flank wins.
 						Charge Vs Close					 Charge wins.
 						*/
 					}
@@ -989,7 +847,7 @@ client.on( 'message', ( message ) =>
 				{	msg += "Use `~rac` to see a list of recognized actions.";	}
 			}
 			else
-			{	msg = "Something isn't right... have you tried the `~help rac` command?";	}		
+			{	msg = "Something isn't right... have you tried the `~help rac` command?";	}
 		}
 	  // Areas of improvement
 		else if ( firstCmd === 'test' )
@@ -1012,13 +870,13 @@ client.on( 'message', ( message ) =>
 	  //+ Shade Math
 		else if ( firstCmd === 'vs' )
 		{
-			/* 
+			/*
 			B (B + G + 2) / 2
 			G (B + W + 3) / 2
 			G (G + W + 3) / 2
 
-			W + W = W. 
-			W + G = G. 
+			W + W = W.
+			W + G = G.
 			W + B = G.
 
 			G + G = G.
@@ -1044,7 +902,7 @@ client.on( 'message', ( message ) =>
 				Note that if you fail, but your only opponent succeeds with 0 extra successes, (TODO: this should be verified) the versus test is still a tie.
 				*/
 
-		  
+
 			if ( args[1] === "clear")
 			{
 				client.rollMap.set( message.channel.id, [] );
@@ -1090,7 +948,7 @@ client.on( 'message', ( message ) =>
 				{
 					let cont = client.rollMap.get( mention.id );
 
-					if ( cont !== null ) //+ don't add duplicate mentions. 
+					if ( cont !== null ) //+ don't add duplicate mentions.
 					{
 						contenders.push( cont );
 					}
@@ -1121,7 +979,7 @@ client.on( 'message', ( message ) =>
 				{
 					//+ let winner = '';
 
-					contenders.forEach( ( contestant, cI, cC ) =>
+					contenders.forEach( ( contestant, cI) =>
 					{
 						//+ highest DoS should not face itself
 						contestant.obstacle = cI === 0 ? secondDoS : firstDoS;
@@ -1138,7 +996,7 @@ client.on( 'message', ( message ) =>
 							msg += contestant.ObMultiplier > 1 ? ` * ${contestant.ObMultiplier}` : '';
 							msg += contestant.ObAddition !== 0 ? ` + ${contestant.ObAddition}]` : ']';
 						}
-						
+
 						if ( contestant.beginnersLuck )
 						{
 							let testDiff = RDC( totalPool, totalOb / 2 );
@@ -1160,10 +1018,10 @@ client.on( 'message', ( message ) =>
 						client.rollMap.set( contestant.owner, contestant )
 					});
 				}
-				else 
+				else
 					{	msg += '/nYou need two to tango.';	}
 			}
-			
+
 		}
 	  // Invalid command
 		else
@@ -1204,7 +1062,7 @@ function actionConverter ( type, action )
 
 	if ( type === 'f')
 	{
-		
+
 	}
 	else if ( type === 'd' )
 	{
@@ -1269,8 +1127,40 @@ function actionConverter ( type, action )
 		}
 	}
 
-
 	return act;
 }
 
-client.login( config.token );
+// const creator = new SlashCreator({
+// 	applicationID: config.application_id,
+// 	publicKey: config.publicKey,
+// 	token: config.token,
+// 	client
+// });
+//
+// creator
+// 	.withServer(
+// 		new GatewayServer(
+// 			(handler) => client.ws.on('INTERACTION_CREATE', handler)
+// 		)
+// 	)
+// 	.registerCommandsIn(path.join(__dirname, 'src', 'commands'))
+// 	.syncCommands();
+//
+// client.login( config.token );
+
+client.on('interactionCreate', async interaction => {
+	if (!interaction.isChatInputCommand()) return;
+
+	const command = interaction.client.commands.get(interaction.commandName);
+
+	if (!command) return;
+
+	try {
+		await command.run(interaction);
+	} catch (error) {
+		console.error(error);
+		await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+	}
+});
+
+client.login(config.token);
